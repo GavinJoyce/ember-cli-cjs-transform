@@ -49,6 +49,7 @@ module.exports = class CJSTransform extends Plugin {
 
   calculateCacheKey() {
     const hashForDep = require('hash-for-dep');
+    const hashTree = require('hash-for-dep/lib/hash-tree');
     const pkgDir = require('pkg-dir');
 
     let hashes = [
@@ -68,7 +69,9 @@ module.exports = class CJSTransform extends Plugin {
         let hash = hashForDep(packageDir);
 
         hashes.push(hash);
-      } //TODO: basic caching for files outside of node_modules
+      } else {
+        hashes.push(hashTree(relativePath));
+      }
     }
 
     return crypto
