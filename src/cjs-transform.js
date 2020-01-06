@@ -17,8 +17,10 @@ module.exports = class CJSTransform extends Plugin {
       persistentOutput: true,
     });
 
-    this.parentRoot = parentRoot;
+    // TODO: GJ: find out why this incorrectly is `<PROJECT_PATH>/node_modules/ember-monaco` when used with https://github.com/mike-north/ember-monaco
+    this.parentRoot = parentRoot.split(NODE_MODULES)[0];
     this.options = options;
+
     this.hasBuilt = false;
     this.cache = new Cache(this.calculateCacheKey());
   }
@@ -47,6 +49,7 @@ module.exports = class CJSTransform extends Plugin {
 
   calculateCacheKey() {
     const hashForDep = require('hash-for-dep');
+    const hashTree = require('hash-for-dep/lib/hash-tree');
     const pkgDir = require('pkg-dir');
 
     let hashes = [
@@ -57,13 +60,18 @@ module.exports = class CJSTransform extends Plugin {
     ];
 
     for (let relativePath in this.options) {
-      let fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
-        basedir: this.parentRoot,
-      });
-      let packageDir = pkgDir.sync(fullPath);
-      let hash = hashForDep(packageDir);
+      if (relativePath.startsWith(NODE_MODULES)) {
+        let fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
+          basedir: this.parentRoot,
+        });
 
-      hashes.push(hash);
+        let packageDir = pkgDir.sync(fullPath);
+        let hash = hashForDep(packageDir);
+
+        hashes.push(hash);
+      } else {
+        hashes.push(hashTree(relativePath));
+      }
     }
 
     return crypto
@@ -89,15 +97,14 @@ module.exports = class CJSTransform extends Plugin {
     const resolve = require('rollup-plugin-node-resolve');
     const commonjs = require('rollup-plugin-commonjs');
 
-    if (!relativePath.startsWith(NODE_MODULES)) {
-      throw new Error(`The "cjs" transform works only with NPM packages.
-You tried to use it with "${relativePath}". Make sure your imported file path
-begins with "node_modules/".`);
+    let fullPath;
+    if (relativePath.startsWith(NODE_MODULES)) {
+      fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
+        basedir: this.parentRoot,
+      });
+    } else {
+      fullPath = path.join(this.parentRoot, relativePath);
     }
-
-    const fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
-      basedir: this.parentRoot,
-    });
 
     let plugins = this.options[relativePath].plugins || [];
 
