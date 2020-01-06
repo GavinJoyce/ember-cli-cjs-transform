@@ -108,6 +108,54 @@ describe('ember-cli-cjs-transform', function() {
     );
 
     it(
+      'functionality works for files which live outside of node_modules',
+      co.wrap(function*(assert) {
+        let commonContents = {
+          vendor: {
+            foo: {
+              'package.json': '{ "name": "foo", "version": "1.0.0" }',
+              'index.js': 'module.exports = "derp";',
+            },
+          },
+        };
+        projectRoot.write(commonContents);
+        input.write(commonContents);
+
+        let subject = new CJSTransform(input.path(), projectRoot.path(), {
+          'vendor/foo/index.js': { as: 'bar' },
+        });
+
+        output = createBuilder(subject);
+
+        yield output.build();
+
+        let results = evaluateModules(output.path('vendor/foo/index.js'));
+        assert.equal(results.name, 'bar');
+        assert.deepEqual(results.exports, { default: 'derp' });
+
+        // UPDATE
+        commonContents = {
+          node_modules: {
+            foo: {
+              'index.js': 'module.exports = "lol should not update";',
+            },
+          },
+        };
+        projectRoot.write(commonContents);
+        input.write(commonContents);
+
+        yield output.build();
+
+        assert.deepEqual(output.changes(), {});
+
+        // NOOP
+        yield output.build();
+
+        assert.deepEqual(output.changes(), {});
+      })
+    );
+
+    it(
       'recovers even if files within the cache are removed',
       co.wrap(function*(assert) {
         let commonContents = {

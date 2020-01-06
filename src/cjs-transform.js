@@ -19,6 +19,7 @@ module.exports = class CJSTransform extends Plugin {
 
     this.parentRoot = parentRoot;
     this.options = options;
+
     this.hasBuilt = false;
     this.cache = new Cache(this.calculateCacheKey());
   }
@@ -57,13 +58,16 @@ module.exports = class CJSTransform extends Plugin {
     ];
 
     for (let relativePath in this.options) {
-      let fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
-        basedir: this.parentRoot,
-      });
-      let packageDir = pkgDir.sync(fullPath);
-      let hash = hashForDep(packageDir);
+      if (relativePath.startsWith(NODE_MODULES)) {
+        let fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
+          basedir: this.parentRoot,
+        });
 
-      hashes.push(hash);
+        let packageDir = pkgDir.sync(fullPath);
+        let hash = hashForDep(packageDir);
+
+        hashes.push(hash);
+      } //TODO: basic caching for files outside of node_modules
     }
 
     return crypto
@@ -89,15 +93,14 @@ module.exports = class CJSTransform extends Plugin {
     const resolve = require('rollup-plugin-node-resolve');
     const commonjs = require('rollup-plugin-commonjs');
 
-    if (!relativePath.startsWith(NODE_MODULES)) {
-      throw new Error(`The "cjs" transform works only with NPM packages.
-You tried to use it with "${relativePath}". Make sure your imported file path
-begins with "node_modules/".`);
+    let fullPath;
+    if (relativePath.startsWith(NODE_MODULES)) {
+      fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
+        basedir: this.parentRoot,
+      });
+    } else {
+      fullPath = path.join(this.parentRoot, relativePath);
     }
-
-    const fullPath = resolveSync(relativePath.slice(NODE_MODULES.length), {
-      basedir: this.parentRoot,
-    });
 
     let plugins = this.options[relativePath].plugins || [];
 
