@@ -17,7 +17,8 @@ module.exports = class CJSTransform extends Plugin {
       persistentOutput: true,
     });
 
-    this.parentRoot = parentRoot;
+    // TODO: GJ: find out why this incorrectly is `<PROJECT_PATH>/node_modules/ember-monaco` when used with https://github.com/mike-north/ember-monaco
+    this.parentRoot = parentRoot.split(NODE_MODULES)[0];
     this.options = options;
 
     this.hasBuilt = false;
